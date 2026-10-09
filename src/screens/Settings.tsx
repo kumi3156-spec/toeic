@@ -16,14 +16,6 @@ import {
   type Settings as SettingsT,
 } from '../storage/progress';
 
-const REVEAL_OPTIONS = [
-  { ms: 0, label: '끄기' },
-  { ms: 500, label: '0.5초' },
-  { ms: 800, label: '0.8초' },
-  { ms: 1200, label: '1.2초' },
-  { ms: 2000, label: '2초' },
-];
-
 function Toggle({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc?: ReactNode }) {
   return (
     <label className="toggle-row">
@@ -124,16 +116,6 @@ export function Settings({ vocab }: { vocab: Vocab }) {
             if (v) speak('Hello');
           }}
         />
-        <div className="field">
-          <span className="field-label">알고있음 뜻 표시 시간</span>
-          <div className="segmented">
-            {REVEAL_OPTIONS.map((o) => (
-              <button key={o.ms} className={s.knownRevealMs === o.ms ? 'on' : ''} onClick={() => update({ knownRevealMs: o.ms })}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </section>
 
       <h2 className="section-title">기록 백업</h2>
