@@ -17,7 +17,7 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
   const valid = result && result.deck === deck;
 
   useEffect(() => {
-    if (!valid) navigate('/', { replace: true });
+    if (!valid) navigate('/');
   }, [valid]);
   if (!valid) return null;
 
@@ -29,7 +29,7 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
     // 같은 단어 묶음으로 처음부터
     const ids = chId !== null ? vocab.wordIdsByChapter.get(chId) ?? result.wordIds : result.wordIds;
     startDeck(deck, ids);
-    navigate(`/study/${deck}`, { replace: true });
+    navigate(`/study/${deck}`);
   };
 
   return (
@@ -90,11 +90,11 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
           다시 회독하기
         </button>
         {next && (
-          <button className="btn btn-secondary" onClick={() => navigate(`/study/${chapterDeck(next.id)}`, { replace: true })}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/study/${chapterDeck(next.id)}`)}>
             다음 챕터 ({next.title})
           </button>
         )}
-        <button className="btn btn-ghost" onClick={() => navigate('/', { replace: true })}>
+        <button className="btn btn-ghost" onClick={() => navigate('/')}>
           홈으로
         </button>
       </div>

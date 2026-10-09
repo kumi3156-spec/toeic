@@ -11,7 +11,7 @@ import {
 import { useProgress } from '../app/useProgress';
 import { IconClose, IconSpeaker, IconUndo } from '../components/Icons';
 import { WordDetail } from '../components/WordDetail';
-import { currentWordId, isComplete, knownCount, remainingCount, type Answer } from '../core/session';
+import { canUndo, currentWordId, isComplete, knownCount, remainingCount, type Answer } from '../core/session';
 import { posLabel, type Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
 import { speak, speechSupported } from '../lib/speech';
@@ -52,7 +52,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
   const swipedAt = useRef(0);
 
   const finish = useCallback(() => {
-    if (completeDeck(deck)) navigate(`/done/${deck}`, { replace: true });
+    if (completeDeck(deck)) navigate(`/done/${deck}`);
   }, [deck]);
 
   // 시작 또는 이어하기
@@ -61,7 +61,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     if (!s) {
       const ch = deckChapterId(deck);
       if (ch !== null && vocab.chapterById.has(ch)) startChapter(vocab, ch);
-      else navigate(deck === WEAK_DECK ? '/weak' : '/', { replace: true });
+      else navigate(deck === WEAK_DECK ? '/weak' : '/');
     } else if (isComplete(s)) {
       finish();
     } else {
@@ -192,7 +192,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
           <strong>{title}</strong>
           {chapter && <small>{chapter.levelName}</small>}
         </div>
-        <button className="icon-btn" onClick={onUndo} disabled={!session.undo} aria-label="되돌리기">
+        <button className="icon-btn" onClick={onUndo} disabled={!canUndo(session)} aria-label="되돌리기">
           <IconUndo />
         </button>
       </header>

@@ -171,7 +171,7 @@ describe('undo', () => {
     expect(r.undone).toMatchObject({ wordId: 1, answer: 'known' });
     expect(r.session.queue).toEqual(s0.queue);
     expect(currentWordId(r.session)).toBe(1);
-    expect(r.session.undo).toBeNull();
+    expect(r.session.history).toEqual([]);
   });
 
   it('직전 답 1개를 취소한다 (모르겠음, 틀린 횟수도 복구)', () => {
@@ -196,13 +196,42 @@ describe('undo', () => {
     expect(r.session.pending).toEqual(before.pending);
   });
 
-  it('되돌리기는 한 번만 가능하다', () => {
-    let s = createSession(ids(5), { now: 0 });
+  it('여러 번 연속으로 되돌릴 수 있다 (c → b → a)', () => {
+    let s = createSession([1, 2, 3], { shuffle: false, now: 0 });
     expect(undo(s)).toBeNull();
-    s = answer(answer(s, 'known'), 'known');
-    const r = undo(s)!;
+    s = answer(answer(answer(s, 'known'), 'unknown'), 'known'); // a, b, c
+    let r = undo(s)!;
+    expect(r.undone.wordId).toBe(3);
+    expect(currentWordId(r.session)).toBe(3);
+    r = undo(r.session)!;
+    expect(r.undone.wordId).toBe(2);
+    expect(currentWordId(r.session)).toBe(2);
+    expect(r.session.missCounts[2]).toBeUndefined();
+    r = undo(r.session)!;
+    expect(r.undone.wordId).toBe(1);
+    expect(currentWordId(r.session)).toBe(1);
+    expect(remainingCount(r.session)).toBe(3);
     expect(undo(r.session)).toBeNull();
-    expect(remainingCount(r.session)).toBe(4);
+  });
+
+  it('여러 바퀴를 진행한 뒤 끝까지 되돌리면 처음 상태로 돌아간다', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const rng = seeded(seed);
+      const s0 = createSession(ids(8), { rng, now: 0 });
+      let s = s0;
+      const states = [s0];
+      for (let i = 0; i < 40 && !isComplete(s); i++) {
+        s = answer(s, rng() < 0.5 ? 'unknown' : 'known', { rng, now: 0 });
+        states.push(s);
+      }
+      // 한 단계씩 되돌리며 각 단계의 상태와 일치하는지 확인
+      for (let k = states.length - 2; k >= 0; k--) {
+        s = undo(s, { now: 0 })!.session;
+        const want = states[k];
+        expect([s.queue, s.pending, s.round, s.missCounts]).toEqual([want.queue, want.pending, want.round, want.missCounts]);
+      }
+      expect(undo(s)).toBeNull();
+    }
   });
 
   it('완료 직후에도 마지막 답을 되돌릴 수 있다', () => {
@@ -227,7 +256,8 @@ describe('저장 후 복원', () => {
 
     // 복원된 세션에서 되돌리기도 동작한다
     const r = undo(restored)!;
-    expect(r.session.queue).toEqual(s.undo!.prev.queue);
+    expect(currentWordId(r.session)).toBe(s.history[s.history.length - 1].wordId);
+    expect(remainingCount(r.session)).toBeGreaterThanOrEqual(remainingCount(s));
 
     // 같은 난수로 이어가면 원본과 같은 결과
     const a = run(s, () => 'known', seeded(1));

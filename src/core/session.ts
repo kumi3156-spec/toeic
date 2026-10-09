@@ -5,13 +5,16 @@ export type Answer = 'known' | 'unknown';
 
 export type Rng = () => number;
 
-/** 되돌리기용 기록: 직전 답 1개 */
+/** 되돌리기용 기록: 답 하나를 거꾸로 되돌리는 데 필요한 최소 정보 */
 export interface UndoEntry {
   wordId: number;
   answer: Answer;
-  /** 답하기 직전 상태 (undo 필드는 제외하고 저장) */
-  prev: SessionCore;
+  /** 이 답으로 바퀴가 넘어갔다면, 답하기 직전의 pending (바퀴를 되돌릴 때 필요) */
+  rolled?: number[];
 }
+
+/** 되돌리기 기록 최대 개수 */
+export const MAX_UNDO = 1000;
 
 export interface SessionCore {
   /** 이번 회독에 포함된 전체 단어 */
@@ -32,7 +35,8 @@ export interface SessionCore {
 }
 
 export interface Session extends SessionCore {
-  undo: UndoEntry | null;
+  /** 되돌리기 기록 (오래된 순). 마지막이 가장 최근 답 */
+  history: UndoEntry[];
 }
 
 export interface Clock {
@@ -69,7 +73,7 @@ export function createSession(
     startedAt: now,
     activeMs: 0,
     lastTick: now,
-    undo: null,
+    history: [],
   };
 }
 
@@ -103,12 +107,6 @@ export function missedWords(s: Session): { wordId: number; count: number }[] {
     .sort((a, b) => b.count - a.count || a.wordId - b.wordId);
 }
 
-function stripUndo(s: Session): SessionCore {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { undo: _undo, ...core } = s;
-  return core;
-}
-
 /** 대기열 맨 앞이 방금 본 단어라면 다른 단어와 자리를 바꾼다 */
 function avoidImmediateRepeat(queue: number[], lastId: number, rng: Rng): number[] {
   if (queue.length < 2 || queue[0] !== lastId) return queue;
@@ -135,8 +133,11 @@ export function answer(s: Session, ans: Answer, clock: Clock = {}): Session {
     missCounts = { ...missCounts, [id]: (missCounts[id] ?? 0) + 1 };
   }
 
+  const entry: UndoEntry = { wordId: id, answer: ans };
+
   // 한 바퀴를 다 돌았으면 남은 "모르겠음" 단어로 다음 바퀴 시작
   if (queue.length === 0 && pending.length > 0) {
+    entry.rolled = s.pending;
     queue = s.shuffle ? shuffleArray(pending, rng) : pending.slice();
     queue = avoidImmediateRepeat(queue, id, rng);
     pending = [];
@@ -153,18 +154,45 @@ export function answer(s: Session, ans: Answer, clock: Clock = {}): Session {
     missCounts,
     activeMs: s.activeMs + delta,
     lastTick: now,
-    undo: { wordId: id, answer: ans, prev: stripUndo(s) },
+    history: [...s.history, entry].slice(-MAX_UNDO),
   };
 }
 
-/** 직전 답 1개를 취소한다. 취소할 것이 없으면 null */
+export function canUndo(s: Session): boolean {
+  return s.history.length > 0;
+}
+
+/** 가장 최근 답 1개를 취소한다. 여러 번 호출하면 계속 이전으로 돌아간다. 취소할 것이 없으면 null */
 export function undo(s: Session, clock: Clock = {}): { session: Session; undone: UndoEntry } | null {
-  if (!s.undo) return null;
+  const entry = s.history[s.history.length - 1];
+  if (!entry) return null;
   const now = clock.now ?? Date.now();
+  const id = entry.wordId;
+
+  let queue: number[];
+  let pending: number[];
+  let round = s.round;
+  if (entry.rolled) {
+    // 바퀴가 넘어간 답: 이전 바퀴의 마지막 단어 하나만 남은 상태로 복원
+    queue = [id];
+    pending = entry.rolled;
+    round -= 1;
+  } else {
+    queue = [id, ...s.queue];
+    pending = entry.answer === 'unknown' ? s.pending.slice(0, -1) : s.pending;
+  }
+
+  const missCounts = { ...s.missCounts };
+  if (entry.answer === 'unknown') {
+    const n = (missCounts[id] ?? 0) - 1;
+    if (n > 0) missCounts[id] = n;
+    else delete missCounts[id];
+  }
+
   return {
     // 시간은 되돌리지 않는다 (실제로 공부한 시간이므로)
-    session: { ...s.undo.prev, activeMs: s.activeMs, lastTick: now, undo: null },
-    undone: s.undo,
+    session: { ...s, queue, pending, round, missCounts, lastTick: now, history: s.history.slice(0, -1) },
+    undone: entry,
   };
 }
 
@@ -214,13 +242,18 @@ function parseCore(v: unknown): SessionCore | null {
 export function parseSession(v: unknown): Session | null {
   const core = parseCore(v);
   if (!core) return null;
-  let undoEntry: UndoEntry | null = null;
-  const u = (v as Record<string, unknown>).undo as Record<string, unknown> | null | undefined;
-  if (u && typeof u === 'object' && typeof u.wordId === 'number' && (u.answer === 'known' || u.answer === 'unknown')) {
-    const prev = parseCore(u.prev);
-    if (prev) undoEntry = { wordId: u.wordId, answer: u.answer, prev };
+  const history: UndoEntry[] = [];
+  const h = (v as Record<string, unknown>).history;
+  if (Array.isArray(h)) {
+    for (const e of h as Record<string, unknown>[]) {
+      if (!e || typeof e.wordId !== 'number' || (e.answer !== 'known' && e.answer !== 'unknown')) continue;
+      const entry: UndoEntry = { wordId: e.wordId, answer: e.answer };
+      if (isIdArray(e.rolled)) entry.rolled = e.rolled;
+      history.push(entry);
+    }
   }
-  return { ...core, undo: undoEntry };
+  // 예전 형식(undo: 직전 1개)은 버린다
+  return { ...core, history: history.slice(-MAX_UNDO) };
 }
 
 export function deserializeSession(json: string): Session | null {
