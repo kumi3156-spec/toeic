@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadVocab, type Vocab } from './data/vocab';
-import { useRoute } from './lib/router';
+import { installBackGuard, navigate, useRoute } from './lib/router';
 import { Complete } from './screens/Complete';
 import { Home } from './screens/Home';
 import { Settings } from './screens/Settings';
@@ -20,6 +20,15 @@ export function App() {
   }, []);
 
   useEffect(load, [load]);
+
+  // 기기의 뒤로가기(스와이프): 학습 화면·홈에서는 무시, 그 외 화면에서는 홈으로
+  useEffect(
+    () =>
+      installBackGuard((route) => {
+        if (route[0] !== 'study' && route.length > 0) navigate('/');
+      }),
+    [],
+  );
 
   // 화면이 바뀌면 맨 위로
   const path = route.join('/');
