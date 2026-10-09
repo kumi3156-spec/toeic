@@ -8,6 +8,12 @@ export interface Word {
   synonyms: string[];
   collocations: string[];
   example: string;
+  /** 발음기호 (IPA, 미국식) */
+  ipa?: string;
+  /** 예문 해석 */
+  exampleKo?: string;
+  /** 콜로케이션 뜻 (collocations와 같은 순서) */
+  collocationsKo?: string[];
   source: string;
   level: number;
   chapter: number;

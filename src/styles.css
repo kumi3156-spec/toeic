@@ -756,6 +756,17 @@ p {
   background: var(--accent-soft);
 }
 
+.speak-btn.small {
+  flex: none;
+  width: 36px;
+  height: 36px;
+}
+
+.speak-btn.small svg {
+  width: 18px;
+  height: 18px;
+}
+
 .speak-btn:active {
   transform: scale(0.92);
 }
@@ -855,11 +866,50 @@ p {
   margin: 0;
   padding-left: 18px;
   font-size: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.colloc-ko {
+  color: var(--muted);
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.colloc-ko::before {
+  content: '– ';
+}
+
+.example-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .example {
+  flex: 1;
   font-size: 16px;
   line-height: 1.6;
+}
+
+.example-ko {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.ipa {
+  margin-top: -4px;
+  font-size: 17px;
+  color: var(--muted);
+  font-family: 'Pretendard Variable', 'Segoe UI', 'Noto Sans', 'Lucida Sans Unicode', system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.card-open .ipa {
+  font-size: 15px;
 }
 
 .example strong {

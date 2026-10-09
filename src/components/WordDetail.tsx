@@ -1,5 +1,7 @@
 import type { Word } from '../data/vocab';
 import { splitHighlight } from '../lib/highlight';
+import { speak, speechSupported } from '../lib/speech';
+import { IconSpeaker } from './Icons';
 
 const POS_FULL: Record<string, string> = {
   n: '명사',
@@ -45,8 +47,11 @@ export function WordDetail({ word }: { word: Word }) {
         <section className="detail-row">
           <h4>콜로케이션</h4>
           <ul className="colloc">
-            {word.collocations.map((c) => (
-              <li key={c}>{c}</li>
+            {word.collocations.map((c, i) => (
+              <li key={c}>
+                <span lang="en">{c}</span>
+                {word.collocationsKo?.[i] && <span className="colloc-ko">{word.collocationsKo[i]}</span>}
+              </li>
             ))}
           </ul>
         </section>
@@ -54,9 +59,17 @@ export function WordDetail({ word }: { word: Word }) {
       {word.example && (
         <section className="detail-row">
           <h4>예문</h4>
-          <p className="example">
-            <Example word={word} />
-          </p>
+          <div className="example-row">
+            <p className="example" lang="en">
+              <Example word={word} />
+            </p>
+            {speechSupported && (
+              <button className="speak-btn small" onClick={() => speak(word.example)} aria-label="예문 듣기">
+                <IconSpeaker />
+              </button>
+            )}
+          </div>
+          {word.exampleKo && <p className="example-ko">{word.exampleKo}</p>}
         </section>
       )}
     </div>

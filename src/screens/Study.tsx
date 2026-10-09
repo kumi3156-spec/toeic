@@ -233,6 +233,11 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
               <h1 className={`word ${wordSizeClass(word.word)}`} lang="en">
                 {word.word}
               </h1>
+              {word.ipa && (
+                <p className="ipa" lang="en">
+                  [{word.ipa}]
+                </p>
+              )}
               {speechSupported && (
                 <button
                   className="speak-btn"
