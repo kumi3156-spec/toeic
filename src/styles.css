@@ -47,8 +47,6 @@
 html,
 body {
   margin: 0;
-  /* 가로 오버스크롤로 인한 브라우저 뒤로가기(스와이프 내비게이션) 방지 */
-  overscroll-behavior-x: none;
   background: var(--bg);
   color: var(--text);
   font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR',

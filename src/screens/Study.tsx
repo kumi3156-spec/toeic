@@ -52,7 +52,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
   const swipedAt = useRef(0);
 
   const finish = useCallback(() => {
-    if (completeDeck(deck)) navigate(`/done/${deck}`);
+    if (completeDeck(deck)) navigate(`/done/${deck}`, { replace: true });
   }, [deck]);
 
   // 시작 또는 이어하기
@@ -61,7 +61,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     if (!s) {
       const ch = deckChapterId(deck);
       if (ch !== null && vocab.chapterById.has(ch)) startChapter(vocab, ch);
-      else navigate(deck === WEAK_DECK ? '/weak' : '/');
+      else navigate(deck === WEAK_DECK ? '/weak' : '/', { replace: true });
     } else if (isComplete(s)) {
       finish();
     } else {
