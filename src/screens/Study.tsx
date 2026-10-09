@@ -17,7 +17,7 @@ import { navigate } from '../lib/router';
 import { speak, speechSupported } from '../lib/speech';
 import { deckChapterId, WEAK_DECK } from '../storage/progress';
 
-type Phase = { kind: 'question' } | { kind: 'known'; wordId: number } | { kind: 'unknown'; wordId: number };
+type Phase = { kind: 'question' } | { kind: 'unknown'; wordId: number };
 
 const SWIPE_THRESHOLD = 80;
 
@@ -42,11 +42,13 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
 
   const [phase, setPhase] = useState<Phase>({ kind: 'question' });
   const [cardKey, setCardKey] = useState(0);
+  // 카드를 탭하면 영어 단어 아래에 뜻을 보여줌
+  const [peek, setPeek] = useState(false);
   const [flash, setFlash] = useState<Answer | null>(null);
   const [dx, setDx] = useState(0);
   const drag = useRef<{ x: number; y: number; active: boolean } | null>(null);
   const flashTimer = useRef<number>();
-  // 스와이프 직후 따라오는 click 이벤트가 뜻 보기를 건너뛰지 않도록
+  // 스와이프 직후 따라오는 click 이벤트가 뜻 보기를 토글하지 않도록
   const swipedAt = useRef(0);
 
   const finish = useCallback(() => {
@@ -66,6 +68,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
       resumeDeck(deck);
     }
     setPhase({ kind: 'question' });
+    setPeek(false);
   }, [deck, vocab, finish]);
 
   const nextQuestion = useCallback(() => {
@@ -75,16 +78,12 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
       return;
     }
     setPhase({ kind: 'question' });
+    setPeek(false);
     setCardKey((k) => k + 1);
   }, [deck, finish]);
 
   const onAnswer = useCallback(
     (ans: Answer) => {
-      if (phase.kind === 'known') {
-        // 뜻을 보여주는 중이면 바로 다음으로
-        nextQuestion();
-        return;
-      }
       if (phase.kind !== 'question') return;
       const s = getSession(deck);
       const id = s ? currentWordId(s) : null;
@@ -95,26 +94,19 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
       window.clearTimeout(flashTimer.current);
       flashTimer.current = window.setTimeout(() => setFlash(null), 320);
       if (ans === 'unknown') setPhase({ kind: 'unknown', wordId: id });
-      else if (settings.knownRevealMs > 0) setPhase({ kind: 'known', wordId: id });
       else nextQuestion();
     },
-    [deck, phase.kind, settings.knownRevealMs, nextQuestion],
+    [deck, phase.kind, nextQuestion],
   );
 
   const onUndo = useCallback(() => {
     if (undoAnswer(deck)) {
       setPhase({ kind: 'question' });
+      setPeek(false);
       setCardKey((k) => k + 1);
       setDx(0);
     }
   }, [deck]);
-
-  // "알고있음" 뒤 뜻을 잠깐 보여주고 자동으로 넘어감
-  useEffect(() => {
-    if (phase.kind !== 'known') return;
-    const t = window.setTimeout(nextQuestion, settings.knownRevealMs);
-    return () => window.clearTimeout(t);
-  }, [phase, settings.knownRevealMs, nextQuestion]);
 
   const wordId = phase.kind === 'question' ? (session ? currentWordId(session) : null) : phase.wordId;
   const word = wordId !== null ? vocab.wordById.get(wordId) : undefined;
@@ -124,17 +116,22 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     if (phase.kind === 'question' && settings.autoSpeak && word) speak(word.word);
   }, [phase.kind, word, settings.autoSpeak, cardKey]);
 
-  // 키보드 (PC에서 확인용): ← 모르겠음, → 알고있음, Space/Enter 다음, Z 되돌리기
-  const keyRef = useRef({ onAnswer, nextQuestion, onUndo, phase });
-  keyRef.current = { onAnswer, nextQuestion, onUndo, phase };
+  const togglePeek = useCallback(() => {
+    if (phase.kind === 'question' && Date.now() - swipedAt.current > 400) setPeek((v) => !v);
+  }, [phase.kind]);
+
+  // 키보드 (PC에서 확인용): ← 모르겠음, → 알고있음, Space 뜻 보기 / 다음, Z 되돌리기
+  const keyRef = useRef({ onAnswer, nextQuestion, onUndo, togglePeek, phase });
+  keyRef.current = { onAnswer, nextQuestion, onUndo, togglePeek, phase };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = keyRef.current;
       if (e.key === 'ArrowLeft') k.onAnswer('unknown');
       else if (e.key === 'ArrowRight') k.onAnswer('known');
-      else if ((e.key === ' ' || e.key === 'Enter') && k.phase.kind !== 'question') {
+      else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        k.nextQuestion();
+        if (k.phase.kind === 'question') k.togglePeek();
+        else k.nextQuestion();
       } else if (e.key === 'z' || e.key === 'Backspace') k.onUndo();
     };
     window.addEventListener('keydown', onKey);
@@ -212,23 +209,19 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
         </div>
       </div>
 
-      <main
-        className="stage"
-        onClick={() => {
-          if (phase.kind === 'known' && Date.now() - swipedAt.current > 400) nextQuestion();
-        }}
-      >
+      <main className="stage">
         {word && (
           <div key={cardKey} className="card-wrap card-enter">
           <div
-            className={`card ${phase.kind === 'unknown' ? 'card-open' : ''} ${flash ? `flash-${flash}` : ''} ${
-              dx !== 0 ? 'dragging' : ''
-            }`}
+            className={`card ${phase.kind === 'unknown' ? 'card-open' : ''} ${
+              flash === 'unknown' ? 'flash-unknown' : ''
+            } ${dx !== 0 ? 'dragging' : ''}`}
             style={dx ? { transform: `translateX(${dx}px) rotate(${dx / 25}deg)` } : undefined}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
+            onClick={togglePeek}
           >
             {dx !== 0 && (
               <div className={`swipe-label ${dx > 0 ? 'known' : 'unknown'}`} style={{ opacity: swipeHint }}>
@@ -253,13 +246,17 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
                   <IconSpeaker />
                 </button>
               )}
-              {phase.kind === 'known' && <p className="quick-meaning">{word.meaning}</p>}
+              {phase.kind === 'question' &&
+                (peek ? (
+                  <p className="quick-meaning">{word.meaning}</p>
+                ) : (
+                  <p className="peek-hint">탭해서 뜻 보기</p>
+                ))}
             </div>
             {phase.kind === 'unknown' && <WordDetail word={word} />}
           </div>
           </div>
         )}
-        {phase.kind === 'known' && <p className="tap-hint">탭하면 바로 넘어가요</p>}
       </main>
 
       <footer className="answer-bar">
