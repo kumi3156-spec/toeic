@@ -3,6 +3,8 @@ import { parseSession, type Session } from '../core/session';
 export interface Settings {
   shuffle: boolean;
   autoSpeak: boolean;
+  /** 뜻을 안 보고 "알고있음"을 눌렀을 때 뜻을 보여주는 시간(ms). 0이면 바로 넘어감 */
+  knownRevealMs: number;
 }
 
 export interface DeckRecord {
@@ -44,6 +46,7 @@ export interface CompletionResult {
 export const DEFAULT_SETTINGS: Settings = {
   shuffle: true,
   autoSpeak: false,
+  knownRevealMs: 800,
 };
 
 export const emptyProgress = (): Progress => ({
@@ -99,6 +102,7 @@ export function parseProgress(raw: unknown): Progress | null {
   const settings: Settings = {
     shuffle: typeof s.shuffle === 'boolean' ? s.shuffle : DEFAULT_SETTINGS.shuffle,
     autoSpeak: typeof s.autoSpeak === 'boolean' ? s.autoSpeak : DEFAULT_SETTINGS.autoSpeak,
+    knownRevealMs: Math.max(0, Math.min(5000, num(s.knownRevealMs, DEFAULT_SETTINGS.knownRevealMs))),
   };
 
   return {

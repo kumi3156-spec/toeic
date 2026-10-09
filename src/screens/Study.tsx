@@ -17,7 +17,7 @@ import { navigate } from '../lib/router';
 import { speak, speechSupported } from '../lib/speech';
 import { deckChapterId, WEAK_DECK } from '../storage/progress';
 
-type Phase = { kind: 'question' } | { kind: 'unknown'; wordId: number };
+type Phase = { kind: 'question' } | { kind: 'known'; wordId: number } | { kind: 'unknown'; wordId: number };
 
 const SWIPE_THRESHOLD = 80;
 
@@ -52,7 +52,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
   const swipedAt = useRef(0);
 
   const finish = useCallback(() => {
-    if (completeDeck(deck)) navigate(`/done/${deck}`);
+    if (completeDeck(deck)) navigate(`/done/${deck}`, { replace: true });
   }, [deck]);
 
   // 시작 또는 이어하기
@@ -61,7 +61,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     if (!s) {
       const ch = deckChapterId(deck);
       if (ch !== null && vocab.chapterById.has(ch)) startChapter(vocab, ch);
-      else navigate(deck === WEAK_DECK ? '/weak' : '/');
+      else navigate(deck === WEAK_DECK ? '/weak' : '/', { replace: true });
     } else if (isComplete(s)) {
       finish();
     } else {
@@ -84,6 +84,11 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
 
   const onAnswer = useCallback(
     (ans: Answer) => {
+      if (phase.kind === 'known') {
+        // 뜻을 보여주는 중이면 바로 다음으로
+        nextQuestion();
+        return;
+      }
       if (phase.kind !== 'question') return;
       const s = getSession(deck);
       const id = s ? currentWordId(s) : null;
@@ -94,9 +99,11 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
       window.clearTimeout(flashTimer.current);
       flashTimer.current = window.setTimeout(() => setFlash(null), 320);
       if (ans === 'unknown') setPhase({ kind: 'unknown', wordId: id });
+      // 뜻을 안 보고 알고있음을 눌렀으면 뜻을 잠깐 보여준 뒤 넘어감
+      else if (!peek && settings.knownRevealMs > 0) setPhase({ kind: 'known', wordId: id });
       else nextQuestion();
     },
-    [deck, phase.kind, nextQuestion],
+    [deck, phase.kind, peek, settings.knownRevealMs, nextQuestion],
   );
 
   const onUndo = useCallback(() => {
@@ -108,6 +115,13 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     }
   }, [deck]);
 
+  // "알고있음" 뒤 뜻 표시 시간이 지나면 자동으로 다음 단어
+  useEffect(() => {
+    if (phase.kind !== 'known') return;
+    const t = window.setTimeout(nextQuestion, settings.knownRevealMs);
+    return () => window.clearTimeout(t);
+  }, [phase, settings.knownRevealMs, nextQuestion]);
+
   const wordId = phase.kind === 'question' ? (session ? currentWordId(session) : null) : phase.wordId;
   const word = wordId !== null ? vocab.wordById.get(wordId) : undefined;
 
@@ -116,9 +130,12 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     if (phase.kind === 'question' && settings.autoSpeak && word) speak(word.word);
   }, [phase.kind, word, settings.autoSpeak, cardKey]);
 
+  // 카드 탭: 문제일 때는 뜻 보기/숨기기, 알고있음 뒤 뜻을 보여주는 중이면 바로 다음
   const togglePeek = useCallback(() => {
-    if (phase.kind === 'question' && Date.now() - swipedAt.current > 400) setPeek((v) => !v);
-  }, [phase.kind]);
+    if (Date.now() - swipedAt.current <= 400) return;
+    if (phase.kind === 'question') setPeek((v) => !v);
+    else if (phase.kind === 'known') nextQuestion();
+  }, [phase.kind, nextQuestion]);
 
   // 키보드 (PC에서 확인용): ← 모르겠음, → 알고있음, Space 뜻 보기 / 다음, Z 되돌리기
   const keyRef = useRef({ onAnswer, nextQuestion, onUndo, togglePeek, phase });
@@ -251,12 +268,19 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
                   <IconSpeaker />
                 </button>
               )}
-              {phase.kind === 'question' &&
+              {phase.kind === 'known' ? (
+                <>
+                  <p className="quick-meaning">{word.meaning}</p>
+                  <p className="peek-hint">탭하면 바로 넘어가요</p>
+                </>
+              ) : (
+                phase.kind === 'question' &&
                 (peek ? (
                   <p className="quick-meaning">{word.meaning}</p>
                 ) : (
                   <p className="peek-hint">탭해서 뜻 보기</p>
-                ))}
+                ))
+              )}
             </div>
             {phase.kind === 'unknown' && <WordDetail word={word} />}
           </div>
