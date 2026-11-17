@@ -1117,3 +1117,10 @@ p {
     transition-duration: 0.01ms !important;
   }
 }
+
+.plan-note {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: -2px;
+}

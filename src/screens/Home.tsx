@@ -92,7 +92,15 @@ export function Home({ vocab }: { vocab: Vocab }) {
     safeSet(OPEN_KEY, JSON.stringify(next));
   };
 
-  const doneCount = vocab.chapters.filter((c) => (progress.decks[chapterDeck(c.id)]?.readCount ?? 0) > 0).length;
+  const isDone = (c: Chapter) => (progress.decks[chapterDeck(c.id)]?.readCount ?? 0) > 0;
+  const doneCount = vocab.chapters.filter(isDone).length;
+  // 핵심 레벨(목표 점수용) 진도와 하루 1챕터 기준 완료 예정일
+  const coreLevels = new Set(vocab.levels.filter((lv) => lv.core).map((lv) => lv.level));
+  const coreChapters = vocab.chapters.filter((c) => coreLevels.has(c.level));
+  const coreDone = coreChapters.filter(isDone).length;
+  const coreLeft = coreChapters.length - coreDone;
+  const finish = new Date();
+  finish.setDate(finish.getDate() + Math.max(0, coreLeft - 1));
   const totalReads = vocab.chapters.reduce((sum, c) => sum + (progress.decks[chapterDeck(c.id)]?.readCount ?? 0), 0);
   const total = vocab.chapters.length;
 
@@ -120,14 +128,29 @@ export function Home({ vocab }: { vocab: Vocab }) {
       </button>
 
       <section className="overall">
+        {coreChapters.length > 0 && (
+          <>
+            <div className="overall-row">
+              <span>핵심 진도 (Lv.1~3)</span>
+              <span>
+                <b>{coreDone}</b> / {coreChapters.length}일
+              </span>
+            </div>
+            <div className="bar">
+              <i style={{ width: `${(coreDone / coreChapters.length) * 100}%` }} />
+            </div>
+            <p className="plan-note">
+              {coreLeft > 0
+                ? `하루 1챕터씩 하면 ${finish.getMonth() + 1}월 ${finish.getDate()}일에 핵심 완료 (남은 ${coreLeft}일)`
+                : '핵심 레벨 완료! 보충 레벨과 자주 틀리는 단어로 복습하세요'}
+            </p>
+          </>
+        )}
         <div className="overall-row">
-          <span>전체 진행률</span>
+          <span>전체</span>
           <span>
             <b>{doneCount}</b> / {total} 챕터 · 누적 {totalReads}회독
           </span>
-        </div>
-        <div className="bar">
-          <i style={{ width: `${(doneCount / Math.max(1, total)) * 100}%` }} />
         </div>
       </section>
 
@@ -143,7 +166,8 @@ export function Home({ vocab }: { vocab: Vocab }) {
               <span className="level-name">
                 {lv.name}
                 <small>
-                  Ch.{first}–{last}
+                  Day {first}–{last}
+                  {lv.core === false && ' · 선택'}
                 </small>
               </span>
               <span className="level-count">

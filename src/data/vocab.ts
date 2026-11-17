@@ -22,6 +22,8 @@ export interface Word {
 export interface Level {
   level: number;
   name: string;
+  /** 목표 점수를 위한 핵심 레벨인지 (아니면 선택 학습) */
+  core?: boolean;
 }
 
 export interface Chapter {

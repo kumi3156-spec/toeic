@@ -28,6 +28,8 @@ export interface Progress {
   decks: Record<string, DeckRecord>;
   words: Record<string, WordStat>;
   lastDeck?: string;
+  /** 챕터 구성(단어 데이터 version). 구성이 바뀌면 챕터 기록을 초기화한다 */
+  layout?: number;
   settings: Settings;
 }
 
@@ -110,8 +112,23 @@ export function parseProgress(raw: unknown): Progress | null {
     decks,
     words,
     lastDeck: typeof o.lastDeck === 'string' ? o.lastDeck : undefined,
+    layout: typeof o.layout === 'number' ? o.layout : undefined,
     settings,
   };
+}
+
+/**
+ * 챕터 구성이 바뀌었으면 챕터별 기록(회독 수, 진행 중 학습)을 지운다.
+ * 단어별 기록(틀린 횟수)과 자주 틀리는 단어 학습, 설정은 그대로 둔다.
+ */
+export function applyLayout(p: Progress, layout: number): Progress {
+  if (p.layout === layout) return p;
+  const decks: Record<string, DeckRecord> = {};
+  for (const [key, rec] of Object.entries(p.decks)) {
+    if (deckChapterId(key) === null) decks[key] = rec;
+  }
+  const lastDeck = p.lastDeck && deckChapterId(p.lastDeck) === null ? p.lastDeck : undefined;
+  return { ...p, decks, lastDeck, layout };
 }
 
 // ---------- localStorage (실패해도 앱은 동작) ----------

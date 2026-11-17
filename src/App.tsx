@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadVocab, type Vocab } from './data/vocab';
 import { useRoute } from './lib/router';
+import { useProgress } from './app/useProgress';
+import { applyLayout, setProgress } from './storage/progress';
 import { Complete } from './screens/Complete';
 import { Home } from './screens/Home';
 import { Settings } from './screens/Settings';
@@ -21,9 +23,19 @@ export function App() {
 
   useEffect(load, [load]);
 
+  // 단어 데이터의 챕터 구성이 바뀌었으면 예전 챕터 기록을 정리
+  const layout = useProgress().layout;
+  const vocabVersion = vocab?.version;
+  useEffect(() => {
+    if (vocabVersion !== undefined && layout !== vocabVersion) setProgress((p) => applyLayout(p, vocabVersion));
+  }, [layout, vocabVersion]);
+
   // 화면이 바뀌면 맨 위로
   const path = route.join('/');
-  useEffect(() => window.scrollTo(0, 0), [path]);
+  useEffect(() => {
+    // 최신 Chrome은 scrollTo가 Promise를 돌려주므로 effect에서 반환하지 않는다
+    window.scrollTo(0, 0);
+  }, [path]);
 
   if (error) {
     return (

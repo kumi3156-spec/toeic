@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answer, createSession } from '../core/session';
-import { bumpWord, emptyProgress, exportJson, importJson, resetDeck, updateDeck } from './progress';
+import { applyLayout, bumpWord, emptyProgress, exportJson, importJson, resetDeck, updateDeck } from './progress';
 
 describe('progress', () => {
   it('내보낸 JSON을 다시 불러오면 같은 기록이 된다 (진행 중 세션 포함)', () => {
@@ -30,5 +30,20 @@ describe('progress', () => {
     expect(p.decks['ch-2'].readCount).toBe(3);
     expect(p.words[1]).toBeUndefined();
     expect(p.words[40].miss).toBe(2);
+  });
+
+  it('챕터 구성이 바뀌면 챕터 기록만 지우고 단어 기록·자주 틀리는 단어 학습은 남긴다', () => {
+    let p = emptyProgress();
+    p = updateDeck(p, 'ch-1', (d) => ({ ...d, readCount: 2, session: createSession([1, 2], { now: 0 }) }));
+    p = updateDeck(p, 'weak', (d) => ({ ...d, session: createSession([5], { now: 0 }) }));
+    p = bumpWord(p, 1, 3);
+    p = { ...p, lastDeck: 'ch-1' };
+    const q = applyLayout(p, 3);
+    expect(q.decks['ch-1']).toBeUndefined();
+    expect(q.decks.weak.session).toBeDefined();
+    expect(q.words[1].miss).toBe(3);
+    expect(q.lastDeck).toBeUndefined();
+    expect(q.layout).toBe(3);
+    expect(applyLayout(q, 3)).toBe(q);
   });
 });
