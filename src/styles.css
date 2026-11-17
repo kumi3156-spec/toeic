@@ -1124,3 +1124,62 @@ p {
   font-weight: 600;
   margin-top: -2px;
 }
+
+.card-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.imp {
+  font-size: 12px;
+  letter-spacing: 1px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.imp-3 {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.imp-2 {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.imp-1 {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.imp-line {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: -8px;
+  background: none;
+}
+
+.imp-line .imp-stars {
+  letter-spacing: 1px;
+}
+
+.wl-imp {
+  color: #d97706;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .imp-3 {
+    color: #fbbf24;
+    background: #3a2a0c;
+  }
+  .wl-imp {
+    color: #fbbf24;
+  }
+  .imp-line {
+    background: none;
+  }
+}

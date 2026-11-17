@@ -95,6 +95,7 @@ export function Weak({ vocab }: { vocab: Vocab }) {
                 <li key={w.wordId}>
                   <span className="wl-word" lang="en">
                     {word.word}
+                    {word.imp === 3 && <span className="wl-imp"> ★</span>}
                   </span>
                   <span className="wl-meaning">{word.meaning}</span>
                   <span className="wl-count">×{w.miss}</span>

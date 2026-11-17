@@ -73,6 +73,7 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
                 <li key={m.wordId}>
                   <span className="wl-word" lang="en">
                     {w.word}
+                    {w.imp === 3 && <span className="wl-imp"> ★</span>}
                   </span>
                   <span className="wl-meaning">{w.meaning}</span>
                   <span className="wl-count">×{m.count}</span>

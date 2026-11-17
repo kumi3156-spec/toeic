@@ -14,6 +14,8 @@ export interface Word {
   exampleKo?: string;
   /** 콜로케이션 뜻 (collocations와 같은 순서) */
   collocationsKo?: string[];
+  /** 토익 850 목표 기준 중요도: 3 최우선, 2 중요, 1 참고 */
+  imp?: number;
   source: string;
   level: number;
   chapter: number;
@@ -59,6 +61,11 @@ export const POS_LABEL: Record<string, string> = {
 };
 
 export const posLabel = (pos: string) => POS_LABEL[pos] ?? pos;
+
+export const IMPORTANCE_LABEL: Record<number, string> = { 3: '최우선', 2: '중요', 1: '참고' };
+
+/** 중요도를 별로 표시 (★★★) */
+export const importanceStars = (imp?: number) => (imp ? '★'.repeat(imp) : '');
 
 export function buildVocab(data: VocabData): Vocab {
   const wordById = new Map<number, Word>();

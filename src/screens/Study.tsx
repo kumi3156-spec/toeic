@@ -12,7 +12,7 @@ import { useProgress } from '../app/useProgress';
 import { IconClose, IconSpeaker, IconUndo } from '../components/Icons';
 import { WordDetail } from '../components/WordDetail';
 import { canUndo, currentWordId, isComplete, knownCount, remainingCount, type Answer } from '../core/session';
-import { posLabel, type Vocab } from '../data/vocab';
+import { IMPORTANCE_LABEL, importanceStars, posLabel, type Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
 import { speak, speechSupported } from '../lib/speech';
 import { deckChapterId, WEAK_DECK } from '../storage/progress';
@@ -246,7 +246,14 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
               </div>
             )}
             <div className="card-front">
-              <span className="pos">{posLabel(word.pos)}</span>
+              <div className="card-tags">
+                <span className="pos">{posLabel(word.pos)}</span>
+                {word.imp && (
+                  <span className={`imp imp-${word.imp}`} aria-label={`중요도 ${IMPORTANCE_LABEL[word.imp]}`}>
+                    {importanceStars(word.imp)}
+                  </span>
+                )}
+              </div>
               <h1 className={`word ${wordSizeClass(word.word)}`} lang="en">
                 {word.word}
               </h1>

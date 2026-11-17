@@ -1,4 +1,4 @@
-import type { Word } from '../data/vocab';
+import { IMPORTANCE_LABEL, importanceStars, type Word } from '../data/vocab';
 import { splitHighlight } from '../lib/highlight';
 import { speak, speechSupported } from '../lib/speech';
 import { IconSpeaker } from './Icons';
@@ -31,6 +31,11 @@ export function WordDetail({ word }: { word: Word }) {
         <span className="pos-tag">{POS_FULL[word.pos] ?? word.pos}</span>
         {word.meaning}
       </p>
+      {word.imp && (
+        <p className={`imp-line imp-${word.imp}`}>
+          중요도 <span className="imp-stars">{importanceStars(word.imp)}</span> {IMPORTANCE_LABEL[word.imp]}
+        </p>
+      )}
       {word.synonyms.length > 0 && (
         <section className="detail-row">
           <h4>유의어</h4>

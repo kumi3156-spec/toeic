@@ -17,7 +17,11 @@ export function App() {
   const load = useCallback(() => {
     setError(null);
     loadVocab()
-      .then(setVocab)
+      .then((v) => {
+        // 화면을 그리기 전에 챕터 구성 변경을 반영 (학습 화면이 만든 세션이 지워지지 않도록)
+        setProgress((p) => applyLayout(p, v.version));
+        setVocab(v);
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : '단어 데이터를 불러오지 못했습니다'));
   }, []);
 
@@ -47,7 +51,7 @@ export function App() {
       </div>
     );
   }
-  if (!vocab) return <div className="screen center muted">단어 불러오는 중…</div>;
+  if (!vocab || layout !== vocab.version) return <div className="screen center muted">단어 불러오는 중…</div>;
 
   const [page, param] = route;
   switch (page) {
