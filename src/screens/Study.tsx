@@ -52,8 +52,8 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
   const swipedAt = useRef(0);
 
   const finish = useCallback(() => {
-    if (completeDeck(deck)) navigate(`/done/${deck}`, { replace: true });
-  }, [deck]);
+    if (completeDeck(deck, deckTitle(vocab, deck))) navigate(`/done/${deck}`, { replace: true });
+  }, [deck, vocab]);
 
   // 시작 또는 이어하기
   useEffect(() => {
@@ -155,9 +155,9 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // 스와이프
+  // 스와이프: 왼쪽 → 오른쪽으로 넘기면 이전 단어(되돌리기). 반대 방향은 아무 동작 없음
   const onPointerDown = (e: PointerEvent) => {
-    if (phase.kind !== 'question') return;
+    if (!session || !canUndo(session)) return;
     drag.current = { x: e.clientX, y: e.clientY, active: false };
   };
   const onPointerMove = (e: PointerEvent) => {
@@ -166,7 +166,11 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
     const mx = e.clientX - d.x;
     const my = e.clientY - d.y;
     if (!d.active) {
-      if (Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my)) return;
+      if (mx < 10 || mx < Math.abs(my)) {
+        // 왼쪽으로 넘기거나 세로 스크롤이면 스와이프로 보지 않는다
+        if (mx < -10 || Math.abs(my) > 10) drag.current = null;
+        return;
+      }
       d.active = true;
       try {
         (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -174,15 +178,14 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
         /* 무시 */
       }
     }
-    setDx(mx);
+    setDx(Math.max(0, mx));
   };
   const onPointerUp = () => {
     const d = drag.current;
     drag.current = null;
     if (!d?.active) return;
     swipedAt.current = Date.now();
-    if (dx > SWIPE_THRESHOLD) onAnswer('known');
-    else if (dx < -SWIPE_THRESHOLD) onAnswer('unknown');
+    if (dx > SWIPE_THRESHOLD) onUndo();
     setDx(0);
   };
   const onPointerCancel = () => {
@@ -233,7 +236,7 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
             className={`card ${phase.kind === 'unknown' ? 'card-open' : ''} ${
               flash === 'unknown' ? 'flash-unknown' : ''
             } ${dx !== 0 ? 'dragging' : ''}`}
-            style={dx ? { transform: `translateX(${dx}px) rotate(${dx / 25}deg)` } : undefined}
+            style={dx ? { transform: `translateX(${dx}px)` } : undefined}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -241,8 +244,8 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
             onClick={togglePeek}
           >
             {dx !== 0 && (
-              <div className={`swipe-label ${dx > 0 ? 'known' : 'unknown'}`} style={{ opacity: swipeHint }}>
-                {dx > 0 ? '알고있음' : '모르겠음'}
+              <div className="swipe-label prev" style={{ opacity: swipeHint }}>
+                ← 이전 단어
               </div>
             )}
             <div className="card-front">

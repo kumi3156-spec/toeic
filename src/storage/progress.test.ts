@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answer, createSession } from '../core/session';
-import { applyLayout, bumpWord, emptyProgress, exportJson, importJson, resetDeck, updateDeck } from './progress';
+import { applyLayout, bumpWord, emptyProgress, exportJson, importJson, logAnswer, logCompletion, resetDeck, updateDeck } from './progress';
 
 describe('progress', () => {
   it('내보낸 JSON을 다시 불러오면 같은 기록이 된다 (진행 중 세션 포함)', () => {
@@ -45,5 +45,19 @@ describe('progress', () => {
     expect(q.lastDeck).toBeUndefined();
     expect(q.layout).toBe(3);
     expect(applyLayout(q, 3)).toBe(q);
+  });
+
+  it('학습 기록: 날짜별 학습량을 쌓고 되돌리면 카드 수를 뺀다, 내보내기/불러오기에 포함된다', () => {
+    let p = emptyProgress();
+    p = logAnswer(p, 3000, 1, '2026-11-18');
+    p = logAnswer(p, 2000, 1, '2026-11-18');
+    p = logAnswer(p, 0, -1, '2026-11-18');
+    expect(p.daily['2026-11-18']).toEqual({ answers: 1, ms: 5000 });
+    p = logCompletion(p, { deck: 'ch-3', title: 'Day 3', finishedAt: 1, elapsedMs: 60000, rounds: 2, total: 30, firstTryKnown: 20, readCount: 1 });
+    const back = importJson(exportJson(p))!;
+    expect(back.daily).toEqual(p.daily);
+    expect(back.history).toEqual(p.history);
+    // 예전 형식(기록 필드 없음)도 불러올 수 있다
+    expect(importJson(JSON.stringify({ version: 1, decks: {}, words: {} }))!.history).toEqual([]);
   });
 });

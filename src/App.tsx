@@ -4,6 +4,7 @@ import { useRoute } from './lib/router';
 import { useProgress } from './app/useProgress';
 import { applyLayout, setProgress } from './storage/progress';
 import { Complete } from './screens/Complete';
+import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Settings } from './screens/Settings';
 import { Study } from './screens/Study';
@@ -59,6 +60,8 @@ export function App() {
       return param ? <Study key={param} vocab={vocab} deck={param} /> : <Home vocab={vocab} />;
     case 'done':
       return param ? <Complete key={param} vocab={vocab} deck={param} /> : <Home vocab={vocab} />;
+    case 'history':
+      return <History />;
     case 'weak':
       return <Weak vocab={vocab} />;
     case 'settings':

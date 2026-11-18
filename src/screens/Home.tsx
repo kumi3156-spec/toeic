@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useProgress } from '../app/useProgress';
-import { IconChevron, IconFlame, IconSettings } from '../components/Icons';
+import { IconCalendar, IconChevron, IconFlame, IconSettings } from '../components/Icons';
 import { remainingCount } from '../core/session';
 import type { Chapter, Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
@@ -109,6 +109,9 @@ export function Home({ vocab }: { vocab: Vocab }) {
       <header className="top-bar">
         <h1 className="app-title">회독 TOEIC</h1>
         <div className="top-actions">
+          <button className="icon-btn" onClick={() => navigate('/history')} aria-label="학습 기록">
+            <IconCalendar />
+          </button>
           <button className="icon-btn" onClick={() => navigate('/weak')} aria-label="자주 틀리는 단어">
             <IconFlame />
           </button>

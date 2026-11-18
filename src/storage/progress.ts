@@ -22,6 +22,30 @@ export interface WordStat {
   lastSeen?: string;
 }
 
+/** 하루 학습량 */
+export interface DayStat {
+  /** 답한 카드 수 (같은 단어를 여러 번 봐도 각각 센다) */
+  answers: number;
+  /** 학습 시간(ms) */
+  ms: number;
+}
+
+/** 회독 완료 기록 */
+export interface HistoryEntry {
+  deck: string;
+  /** 완료 당시 이름 (예: "Day 3") */
+  title: string;
+  finishedAt: number;
+  elapsedMs: number;
+  rounds: number;
+  total: number;
+  firstTryKnown: number;
+  readCount: number;
+}
+
+/** 완료 기록 최대 개수 */
+export const MAX_HISTORY = 3000;
+
 export interface Progress {
   version: 1;
   /** 키: "ch-12" (챕터), "weak" (자주 틀리는 단어) */
@@ -30,6 +54,10 @@ export interface Progress {
   lastDeck?: string;
   /** 챕터 구성(단어 데이터 version). 구성이 바뀌면 챕터 기록을 초기화한다 */
   layout?: number;
+  /** 날짜(YYYY-MM-DD)별 학습량 */
+  daily: Record<string, DayStat>;
+  /** 회독 완료 기록 (오래된 순) */
+  history: HistoryEntry[];
   settings: Settings;
 }
 
@@ -55,6 +83,8 @@ export const emptyProgress = (): Progress => ({
   version: 1,
   decks: {},
   words: {},
+  daily: {},
+  history: [],
   settings: { ...DEFAULT_SETTINGS },
 });
 
@@ -100,6 +130,32 @@ export function parseProgress(raw: unknown): Progress | null {
     words[key] = stat;
   }
 
+  const daily: Record<string, DayStat> = {};
+  if (o.daily && typeof o.daily === 'object') {
+    for (const [day, v] of Object.entries(o.daily as Record<string, unknown>)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !v || typeof v !== 'object') continue;
+      const x = v as Record<string, unknown>;
+      daily[day] = { answers: Math.max(0, Math.floor(num(x.answers, 0))), ms: Math.max(0, num(x.ms, 0)) };
+    }
+  }
+
+  const history: HistoryEntry[] = [];
+  if (Array.isArray(o.history)) {
+    for (const v of o.history as Record<string, unknown>[]) {
+      if (!v || typeof v.deck !== 'string' || typeof v.finishedAt !== 'number') continue;
+      history.push({
+        deck: v.deck,
+        title: typeof v.title === 'string' ? v.title : v.deck,
+        finishedAt: v.finishedAt,
+        elapsedMs: Math.max(0, num(v.elapsedMs, 0)),
+        rounds: Math.max(1, Math.floor(num(v.rounds, 1))),
+        total: Math.max(0, Math.floor(num(v.total, 0))),
+        firstTryKnown: Math.max(0, Math.floor(num(v.firstTryKnown, 0))),
+        readCount: Math.max(1, Math.floor(num(v.readCount, 1))),
+      });
+    }
+  }
+
   const s = (o.settings ?? {}) as Record<string, unknown>;
   const settings: Settings = {
     shuffle: typeof s.shuffle === 'boolean' ? s.shuffle : DEFAULT_SETTINGS.shuffle,
@@ -113,8 +169,23 @@ export function parseProgress(raw: unknown): Progress | null {
     words,
     lastDeck: typeof o.lastDeck === 'string' ? o.lastDeck : undefined,
     layout: typeof o.layout === 'number' ? o.layout : undefined,
+    daily,
+    history: history.slice(-MAX_HISTORY),
     settings,
   };
+}
+
+/** 하루 학습량 기록. 되돌리기는 count를 -1로 */
+export function logAnswer(p: Progress, ms: number, count = 1, day = todayString()): Progress {
+  const cur = p.daily[day] ?? { answers: 0, ms: 0 };
+  return {
+    ...p,
+    daily: { ...p.daily, [day]: { answers: Math.max(0, cur.answers + count), ms: cur.ms + Math.max(0, ms) } },
+  };
+}
+
+export function logCompletion(p: Progress, entry: HistoryEntry): Progress {
+  return { ...p, history: [...p.history, entry].slice(-MAX_HISTORY) };
 }
 
 /**

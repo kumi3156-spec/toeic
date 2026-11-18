@@ -13,6 +13,8 @@ import {
 import type { Vocab } from '../data/vocab';
 import {
   bumpWord,
+  logAnswer,
+  logCompletion,
   chapterDeck,
   deckChapterId,
   getProgress,
@@ -56,10 +58,13 @@ export function recordAnswer(deck: string, ans: Answer): Session | null {
   const wordId = s.queue[0];
   const next = answer(s, ans);
   setProgress((p) =>
-    bumpWord(
-      updateDeck(p, deck, (d) => ({ ...d, session: next, lastStudiedAt: Date.now() })),
-      wordId,
-      ans === 'unknown' ? 1 : 0,
+    logAnswer(
+      bumpWord(
+        updateDeck(p, deck, (d) => ({ ...d, session: next, lastStudiedAt: Date.now() })),
+        wordId,
+        ans === 'unknown' ? 1 : 0,
+      ),
+      next.activeMs - s.activeMs,
     ),
   );
   return next;
@@ -71,7 +76,11 @@ export function undoAnswer(deck: string): Session | null {
   const r = undo(s);
   if (!r) return null;
   setProgress((p) => {
-    let q = updateDeck(p, deck, (d) => ({ ...d, session: r.session }));
+    let q = logAnswer(
+      updateDeck(p, deck, (d) => ({ ...d, session: r.session })),
+      0,
+      -1,
+    );
     if (r.undone.answer === 'unknown') q = bumpWord(q, r.undone.wordId, -1);
     return q;
   });
@@ -79,7 +88,7 @@ export function undoAnswer(deck: string): Session | null {
 }
 
 /** 대기열이 빈 세션을 마무리: 회독 수 +1, 결과 저장 */
-export function completeDeck(deck: string): CompletionResult | null {
+export function completeDeck(deck: string, title: string = deck): CompletionResult | null {
   const s = getSession(deck);
   if (!s || !isComplete(s)) return null;
   const readCount = (getProgress().decks[deck]?.readCount ?? 0) + 1;
@@ -94,7 +103,21 @@ export function completeDeck(deck: string): CompletionResult | null {
     finishedAt: Date.now(),
     readCount,
   };
-  setProgress((p) => updateDeck(p, deck, () => ({ readCount, lastStudiedAt: Date.now() })));
+  setProgress((p) =>
+    logCompletion(
+      updateDeck(p, deck, () => ({ readCount, lastStudiedAt: Date.now() })),
+      {
+        deck,
+        title,
+        finishedAt: result.finishedAt,
+        elapsedMs: result.elapsedMs,
+        rounds: result.rounds,
+        total: result.total,
+        firstTryKnown: result.firstTryKnown,
+        readCount,
+      },
+    ),
+  );
   saveResult(result);
   return result;
 }
