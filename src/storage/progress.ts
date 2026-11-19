@@ -5,6 +5,8 @@ export interface Settings {
   autoSpeak: boolean;
   /** 뜻을 안 보고 "알고있음"을 눌렀을 때 뜻을 보여주는 시간(ms). 0이면 바로 넘어감 */
   knownRevealMs: number;
+  /** 무음 모드에서도 발음 (iOS, 미디어 채널 사용) */
+  speakInSilentMode: boolean;
   /** 자주 틀리는 단어를 이 날짜(YYYY-MM-DD) 이후에 틀린 것만 모은다. 빈 값이면 전체 */
   weakSince: string;
 }
@@ -90,6 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSpeak: false,
   knownRevealMs: 800,
   weakSince: '',
+  speakInSilentMode: true,
 };
 
 export const emptyProgress = (): Progress => ({
@@ -185,6 +188,7 @@ export function parseProgress(raw: unknown): Progress | null {
     shuffle: typeof s.shuffle === 'boolean' ? s.shuffle : DEFAULT_SETTINGS.shuffle,
     autoSpeak: typeof s.autoSpeak === 'boolean' ? s.autoSpeak : DEFAULT_SETTINGS.autoSpeak,
     knownRevealMs: Math.max(0, Math.min(5000, num(s.knownRevealMs, DEFAULT_SETTINGS.knownRevealMs))),
+    speakInSilentMode: typeof s.speakInSilentMode === 'boolean' ? s.speakInSilentMode : DEFAULT_SETTINGS.speakInSilentMode,
     weakSince: typeof s.weakSince === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.weakSince) ? s.weakSince : '',
   };
 

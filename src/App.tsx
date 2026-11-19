@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadVocab, type Vocab } from './data/vocab';
 import { useRoute } from './lib/router';
+import { setMediaMode } from './lib/speech';
 import { useProgress } from './app/useProgress';
 import { applyLayout, setProgress } from './storage/progress';
 import { Complete } from './screens/Complete';
@@ -30,7 +31,12 @@ export function App() {
   useEffect(load, [load]);
 
   // 단어 데이터의 챕터 구성이 바뀌었으면 예전 챕터 기록을 정리
-  const layout = useProgress().layout;
+  const { layout, settings } = useProgress();
+
+  // 무음 모드 발음 설정 반영
+  useEffect(() => {
+    setMediaMode(settings.speakInSilentMode);
+  }, [settings.speakInSilentMode]);
   const vocabVersion = vocab?.version;
   useEffect(() => {
     if (vocabVersion !== undefined && layout !== vocabVersion) setProgress((p) => applyLayout(p, vocabVersion));

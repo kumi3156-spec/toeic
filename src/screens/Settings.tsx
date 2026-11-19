@@ -124,6 +124,12 @@ export function Settings({ vocab }: { vocab: Vocab }) {
             if (v) speak('Hello');
           }}
         />
+        <Toggle
+          label="무음 모드에서도 발음"
+          desc="iPhone: 무음 스위치를 켜도 발음이 나와요. 끄면 발음이 조금 더 빠르고 듣던 음악이 끊기지 않아요"
+          checked={s.speakInSilentMode}
+          onChange={(v) => update({ speakInSilentMode: v })}
+        />
         <div className="field">
           <span className="field-label">알고있음 뜻 표시 시간</span>
           <span className="field-desc">뜻을 안 보고 알고있음을 눌렀을 때 잠깐 보여줌</span>

@@ -26,13 +26,27 @@ if (speechSupported) {
 //  1) Audio Session API(Safari 16.4+)로 'playback' 지정
 //  2) 말하는 동안 무음 오디오를 재생해 오디오 세션을 미디어 재생 상태로 유지
 
-function setPlaybackSession() {
+/** 무음 모드에서도 발음할지 (iOS). 끄면 무음 오디오·미디어 세션을 쓰지 않는다 */
+let mediaMode = true;
+
+export function setMediaMode(on: boolean) {
+  mediaMode = on;
+  setSessionType(on ? 'playback' : 'auto');
+  if (!on) silent?.pause();
+}
+
+function setSessionType(type: string) {
+  if (!isIOS) return;
   try {
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-    if (session && session.type !== 'playback') session.type = 'playback';
+    if (session && session.type !== type) session.type = type;
   } catch {
     /* 미지원 */
   }
+}
+
+function setPlaybackSession() {
+  if (mediaMode) setSessionType('playback');
 }
 
 /** 0.5초 길이의 무음 WAV (8kHz, 8bit, mono) */
@@ -61,11 +75,10 @@ function silentWavUrl(): string {
 
 let silent: HTMLAudioElement | null = null;
 let stopTimer: number | undefined;
-/** 학습 화면에 있는 동안은 미디어 세션을 계속 유지 (발음할 때마다 전환하면 늦어진다) */
-let held = false;
 
+/** 말하는 동안만 무음 오디오를 재생해 미디어 채널을 쓴다 */
 function startSilent() {
-  if (!isIOS) return;
+  if (!isIOS || !mediaMode) return;
   try {
     if (!silent) {
       silent = new Audio(silentWavUrl());
@@ -80,22 +93,10 @@ function startSilent() {
 }
 
 function stopSilentSoon() {
-  if (held) return;
   window.clearTimeout(stopTimer);
   stopTimer = window.setTimeout(() => {
-    if (!held && !window.speechSynthesis.speaking) silent?.pause();
+    if (!window.speechSynthesis.speaking) silent?.pause();
   }, 800);
-}
-
-/** 학습 화면에 들어오고 나갈 때 호출: 들어와 있는 동안 오디오 세션을 미리 열어 둔다 */
-export function holdAudio(on: boolean) {
-  held = on;
-  if (on) {
-    setPlaybackSession();
-    startSilent();
-  } else {
-    stopSilentSoon();
-  }
 }
 
 let warmed = false;
@@ -115,14 +116,13 @@ function warmUp() {
 }
 
 if (typeof window !== 'undefined') {
-  if (isIOS) setPlaybackSession();
-  // 첫 터치(사용자 동작) 때 세션 지정, 엔진 예열, 학습 화면이면 무음 재생 시작
+  setPlaybackSession();
+  // 첫 터치(사용자 동작) 때 세션 지정과 엔진 예열
   window.addEventListener(
     'pointerdown',
     () => {
-      if (isIOS) setPlaybackSession();
+      setPlaybackSession();
       warmUp();
-      if (held) startSilent();
     },
     { capture: true },
   );
