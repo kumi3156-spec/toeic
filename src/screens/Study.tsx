@@ -14,7 +14,7 @@ import { WordDetail } from '../components/WordDetail';
 import { canUndo, currentWordId, isComplete, knownCount, remainingCount, type Answer } from '../core/session';
 import { IMPORTANCE_LABEL, importanceStars, posLabel, type Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
-import { speak, speechSupported } from '../lib/speech';
+import { holdAudio, speak, speechSupported } from '../lib/speech';
 import { deckChapterId, WEAK_DECK } from '../storage/progress';
 
 type Phase = { kind: 'question' } | { kind: 'known'; wordId: number } | { kind: 'unknown'; wordId: number };
@@ -124,6 +124,12 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
 
   const wordId = phase.kind === 'question' ? (session ? currentWordId(session) : null) : phase.wordId;
   const word = wordId !== null ? vocab.wordById.get(wordId) : undefined;
+
+  // 학습 화면에 있는 동안 오디오 세션을 열어 두어 발음이 빨리 나오게
+  useEffect(() => {
+    holdAudio(true);
+    return () => holdAudio(false);
+  }, []);
 
   // 자동 발음
   useEffect(() => {

@@ -61,6 +61,8 @@ function silentWavUrl(): string {
 
 let silent: HTMLAudioElement | null = null;
 let stopTimer: number | undefined;
+/** 학습 화면에 있는 동안은 미디어 세션을 계속 유지 (발음할 때마다 전환하면 늦어진다) */
+let held = false;
 
 function startSilent() {
   if (!isIOS) return;
@@ -78,16 +80,52 @@ function startSilent() {
 }
 
 function stopSilentSoon() {
+  if (held) return;
   window.clearTimeout(stopTimer);
   stopTimer = window.setTimeout(() => {
-    if (!window.speechSynthesis.speaking) silent?.pause();
+    if (!held && !window.speechSynthesis.speaking) silent?.pause();
   }, 800);
 }
 
-/** 첫 터치 때 미리 미디어 재생 세션으로 지정해 둔다 */
-if (isIOS && typeof window !== 'undefined') {
-  setPlaybackSession();
-  window.addEventListener('pointerdown', setPlaybackSession, { once: true, capture: true });
+/** 학습 화면에 들어오고 나갈 때 호출: 들어와 있는 동안 오디오 세션을 미리 열어 둔다 */
+export function holdAudio(on: boolean) {
+  held = on;
+  if (on) {
+    setPlaybackSession();
+    startSilent();
+  } else {
+    stopSilentSoon();
+  }
+}
+
+let warmed = false;
+/** 음성 엔진을 소리 없이 미리 깨워 둔다 (첫 발음이 특히 늦는 것을 줄임) */
+function warmUp() {
+  if (warmed || !speechSupported) return;
+  warmed = true;
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    u.lang = 'en-US';
+    if (voice) u.voice = voice;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* 무시 */
+  }
+}
+
+if (typeof window !== 'undefined') {
+  if (isIOS) setPlaybackSession();
+  // 첫 터치(사용자 동작) 때 세션 지정, 엔진 예열, 학습 화면이면 무음 재생 시작
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      if (isIOS) setPlaybackSession();
+      warmUp();
+      if (held) startSilent();
+    },
+    { capture: true },
+  );
 }
 
 export function speak(text: string) {
@@ -96,7 +134,8 @@ export function speak(text: string) {
     setPlaybackSession();
     startSilent();
     const synth = window.speechSynthesis;
-    synth.cancel();
+    // 말하는 중일 때만 취소 (매번 cancel하면 iOS에서 오히려 늦어진다)
+    if (synth.speaking || synth.pending) synth.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/[~()]/g, ' '));
     u.lang = 'en-US';
     if (voice) u.voice = voice;
