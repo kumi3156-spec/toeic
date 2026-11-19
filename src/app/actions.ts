@@ -155,9 +155,21 @@ export function formatDays(ids: number[]): string {
   return `Day ${parts.join(', ')}`;
 }
 
-/** 여러 Day를 골라 테스트: 각 단어를 한 번씩만 본다. limit이 있으면 그만큼 무작위로 뽑는다 */
-export function startTest(vocab: Vocab, chapterIds: number[], limit = 0): Session {
+export type MultiMode = 'test' | 'read';
+
+/**
+ * 여러 Day를 골라 학습. limit이 있으면 그만큼 무작위로 뽑는다
+ * - test: 각 단어를 한 번씩만 보고 점수 확인
+ * - read: 회독 (모르는 단어가 없어질 때까지 반복)
+ */
+export function startTest(vocab: Vocab, chapterIds: number[], limit = 0, mode: MultiMode = 'test'): Session {
   let ids = chapterIds.flatMap((c) => vocab.wordIdsByChapter.get(c) ?? []);
   if (limit > 0 && ids.length > limit) ids = shuffleArray(ids).slice(0, limit);
-  return startDeck(TEST_DECK, ids, { once: true, label: `테스트 · ${formatDays(chapterIds)}` });
+  const once = mode === 'test';
+  return startDeck(TEST_DECK, ids, { once, label: `${once ? '테스트' : '회독'} · ${formatDays(chapterIds)}` });
+}
+
+/** 회독 라벨을 같은 범위 테스트 라벨로: "회독 · Day 1–3" → "테스트 · Day 1–3" */
+export function toTestLabel(label: string): string {
+  return label.replace(/^회독 · /, '테스트 · ').replace(/ · 오답 회독$/, ' · 오답');
 }

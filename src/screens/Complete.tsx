@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { deckTitle, startDeck } from '../app/actions';
+import { deckTitle, startDeck, toTestLabel } from '../app/actions';
 import type { Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
 import { chapterDeck, deckChapterId, getProgress, loadResult, TEST_DECK } from '../storage/progress';
@@ -176,6 +176,18 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
         <button className="btn btn-primary" onClick={again}>
           다시 회독하기
         </button>
+        {deck === TEST_DECK && (
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              const label = getProgress().decks[TEST_DECK]?.label ?? '테스트';
+              startDeck(TEST_DECK, result.wordIds, { once: true, label: toTestLabel(label) });
+              navigate(`/study/${TEST_DECK}`, { replace: true });
+            }}
+          >
+            같은 범위 테스트하기
+          </button>
+        )}
         {next && (
           <button className="btn btn-secondary" onClick={() => navigate(`/study/${chapterDeck(next.id)}`, { replace: true })}>
             다음 챕터 ({next.title})

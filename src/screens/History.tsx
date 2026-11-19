@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useProgress } from '../app/useProgress';
 import { IconBack } from '../components/Icons';
 import { navigate } from '../lib/router';
-import { todayString, type HistoryEntry } from '../storage/progress';
+import { deckChapterId, todayString, type HistoryEntry } from '../storage/progress';
 
 const WEEKS = 12;
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -159,7 +159,7 @@ export function History() {
                         <b>{h.title}</b>{' '}
                         {h.once
                           ? `정답 ${h.firstTryKnown}/${h.total} · ${formatDuration(h.elapsedMs)}`
-                          : `${h.readCount}회독 · ${formatDuration(h.elapsedMs)} · 바로 안 단어 ${h.firstTryKnown}/${h.total}`}
+                          : `${deckChapterId(h.deck) !== null ? `${h.readCount}회독 · ` : ''}${formatDuration(h.elapsedMs)} · 바로 안 단어 ${h.firstTryKnown}/${h.total}`}
                       </span>
                     ))}
                   </div>

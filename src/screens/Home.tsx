@@ -4,7 +4,7 @@ import { IconCalendar, IconChevron, IconFlame, IconSettings } from '../component
 import { remainingCount } from '../core/session';
 import type { Chapter, Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
-import { chapterDeck, deckChapterId, safeGet, safeSet, WEAK_DECK, type Progress } from '../storage/progress';
+import { chapterDeck, deckChapterId, safeGet, safeSet, TEST_DECK, WEAK_DECK, type Progress } from '../storage/progress';
 
 const OPEN_KEY = 'hoedok:ui:openLevels';
 
@@ -19,19 +19,34 @@ function loadOpenLevels(): number[] | null {
 
 /** "이어서 학습" 대상: 진행 중이면 그 덱, 마지막 챕터를 끝냈으면 다음 챕터 */
 function continueTarget(vocab: Vocab, p: Progress): { deck: string; label: string; sub: string } {
-  const last = p.lastDeck;
+  let last = p.lastDeck;
   if (last) {
     const rec = p.decks[last];
     if (rec?.session) {
-      const title = last === WEAK_DECK ? '자주 틀리는 단어' : vocab.chapterById.get(deckChapterId(last) ?? -1)?.title;
+      const title =
+        last === WEAK_DECK
+          ? '자주 틀리는 단어'
+          : last === TEST_DECK
+            ? rec.label ?? '테스트'
+            : vocab.chapterById.get(deckChapterId(last) ?? -1)?.title;
       if (title) {
+        const left = remainingCount(rec.session);
         return {
           deck: last,
           label: `${title} 이어하기`,
-          sub: `${rec.session.round}바퀴째 · 남은 단어 ${remainingCount(rec.session)}개`,
+          sub: rec.session.once ? `남은 문제 ${left}개` : `${rec.session.round}바퀴째 · 남은 단어 ${left}개`,
         };
       }
     }
+  }
+  // 마지막 학습이 챕터가 아니면 (테스트·자주 틀리는 단어) 가장 최근에 공부한 챕터 기준
+  if (last && deckChapterId(last) === null) {
+    last = Object.entries(p.decks)
+      .filter(([deck]) => deckChapterId(deck) !== null)
+      .sort((a, b) => (b[1].lastStudiedAt ?? 0) - (a[1].lastStudiedAt ?? 0))[0]?.[0];
+  }
+  if (last) {
+    const rec = p.decks[last];
     const id = deckChapterId(last);
     if (id !== null && vocab.chapterById.has(id)) {
       const idx = vocab.chapters.findIndex((c) => c.id === id);
@@ -132,8 +147,8 @@ export function Home({ vocab }: { vocab: Vocab }) {
 
       <button className="home-test" onClick={() => navigate('/test')}>
         <span>
-          여러 Day 골라서 테스트
-          <small>배운 Day를 한 번에 점검하기</small>
+          여러 Day 골라서 회독·테스트
+          <small>배운 Day를 한 번에 복습하거나 점검하기</small>
         </span>
         <span aria-hidden>→</span>
       </button>
