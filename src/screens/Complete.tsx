@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { deckTitle, startDeck } from '../app/actions';
 import type { Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
-import { chapterDeck, deckChapterId, loadResult } from '../storage/progress';
+import { chapterDeck, deckChapterId, getProgress, loadResult, TEST_DECK } from '../storage/progress';
 
 function formatDuration(ms: number) {
   const sec = Math.round(ms / 1000);
@@ -31,6 +31,92 @@ export function Complete({ vocab, deck }: { vocab: Vocab; deck: string }) {
     startDeck(deck, ids);
     navigate(`/study/${deck}`, { replace: true });
   };
+
+  if (result.once) {
+    // 테스트 결과
+    const label = getProgress().decks[TEST_DECK]?.label ?? deckTitle(vocab, deck);
+    const base = label.replace(/ · 오답( 회독)?$/, '');
+    const missedIds = result.missed.map((m) => m.wordId);
+    const pct = result.total ? Math.round((result.firstTryKnown / result.total) * 100) : 0;
+    const go = (ids: number[], once: boolean, suffix: string) => {
+      startDeck(TEST_DECK, ids, { once, label: base + suffix });
+      navigate(`/study/${TEST_DECK}`, { replace: true });
+    };
+    return (
+      <div className="screen complete">
+        <div className="complete-hero">
+          <div className="complete-check score" aria-hidden>
+            {pct}
+          </div>
+          <h1>테스트 결과</h1>
+          <p className="muted">{label}</p>
+        </div>
+
+        <div className="stats">
+          <div className="stat">
+            <span className="stat-label">맞힌 단어</span>
+            <span className="stat-value">
+              {result.firstTryKnown}
+              <small> / {result.total}</small>
+            </span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">정답률</span>
+            <span className="stat-value">{pct}%</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">소요 시간</span>
+            <span className="stat-value">{formatDuration(result.elapsedMs)}</span>
+          </div>
+        </div>
+
+        {result.missed.length > 0 ? (
+          <section className="missed">
+            <h2>
+              틀린 단어 <span className="muted">{result.missed.length}개</span>
+            </h2>
+            <ul className="word-list">
+              {result.missed.map((m) => {
+                const w = vocab.wordById.get(m.wordId);
+                if (!w) return null;
+                return (
+                  <li key={m.wordId}>
+                    <span className="wl-word" lang="en">
+                      {w.word}
+                      {w.imp === 3 && <span className="wl-imp"> ★</span>}
+                    </span>
+                    <span className="wl-meaning">{w.meaning}</span>
+                    <span className="wl-count">Day {w.chapter}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : (
+          <p className="perfect">전부 맞혔어요 🎉</p>
+        )}
+
+        <div className="complete-actions">
+          {missedIds.length > 0 && (
+            <>
+              <button className="btn btn-primary" onClick={() => go(missedIds, false, ' · 오답 회독')}>
+                틀린 단어 회독하기
+              </button>
+              <button className="btn btn-secondary" onClick={() => go(missedIds, true, ' · 오답')}>
+                틀린 단어만 다시 테스트
+              </button>
+            </>
+          )}
+          <button className="btn btn-secondary" onClick={() => go(result.wordIds, true, '')}>
+            같은 범위 다시 테스트
+          </button>
+          <button className="btn btn-ghost" onClick={() => navigate('/', { replace: true })}>
+            홈으로
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="screen complete">

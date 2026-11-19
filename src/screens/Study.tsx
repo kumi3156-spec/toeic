@@ -219,9 +219,13 @@ export function Study({ vocab, deck }: { vocab: Vocab; deck: string }) {
 
       <div className="study-progress">
         <div className="study-progress-text">
-          <span className={session.round > 1 ? 'round-badge on' : 'round-badge'}>{session.round}바퀴째</span>
+          {session.once ? (
+            <span className="round-badge on">테스트</span>
+          ) : (
+            <span className={session.round > 1 ? 'round-badge on' : 'round-badge'}>{session.round}바퀴째</span>
+          )}
           <span>
-            남은 단어 <b>{remaining}</b> / {total}
+            {session.once ? '남은 문제' : '남은 단어'} <b>{remaining}</b> / {total}
           </span>
         </div>
         <div className="bar">

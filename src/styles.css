@@ -1312,3 +1312,130 @@ p {
   color: var(--known);
   margin-right: 4px;
 }
+
+.date-row {
+  display: flex;
+  gap: 8px;
+}
+
+.date-row input[type='date'] {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+}
+
+.date-row input[type='date'].on {
+  border-color: var(--accent);
+}
+
+.chip-btn {
+  flex: none;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chip-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- Day 골라서 테스트 ---------- */
+
+.test-screen {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+.test-desc {
+  margin: 4px 4px 12px;
+}
+
+.quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-row .chip-btn {
+  height: 36px;
+  font-size: 13px;
+}
+
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 6px;
+}
+
+.day-chip {
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-chip.done {
+  border-color: color-mix(in srgb, var(--known) 45%, var(--border));
+}
+
+.day-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.test-start {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px);
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+
+.home-test {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-weight: 700;
+  text-align: left;
+}
+
+.home-test small {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.complete-check.score {
+  font-size: 24px;
+  background: var(--accent);
+}
+
+.complete-check.score::after {
+  content: '점';
+  font-size: 12px;
+  margin-left: 1px;
+  margin-top: 8px;
+}

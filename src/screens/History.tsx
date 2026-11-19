@@ -156,7 +156,10 @@ export function History() {
                   <div className="history-done">
                     {done.map((h) => (
                       <span key={h.finishedAt} className="done-chip">
-                        <b>{h.title}</b> {h.readCount}회독 · {formatDuration(h.elapsedMs)} · 바로 안 단어 {h.firstTryKnown}/{h.total}
+                        <b>{h.title}</b>{' '}
+                        {h.once
+                          ? `정답 ${h.firstTryKnown}/${h.total} · ${formatDuration(h.elapsedMs)}`
+                          : `${h.readCount}회독 · ${formatDuration(h.elapsedMs)} · 바로 안 단어 ${h.firstTryKnown}/${h.total}`}
                       </span>
                     ))}
                   </div>

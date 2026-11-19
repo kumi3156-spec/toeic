@@ -5,13 +5,16 @@ import { IconBack } from '../components/Icons';
 import { remainingCount } from '../core/session';
 import type { Vocab } from '../data/vocab';
 import { navigate } from '../lib/router';
-import { WEAK_DECK } from '../storage/progress';
+import { setProgress, todayString, WEAK_DECK } from '../storage/progress';
 
 const SIZES = [20, 30, 50, 0] as const; // 0 = 전체
 
 export function Weak({ vocab }: { vocab: Vocab }) {
   const progress = useProgress();
-  const weak = weakWordIds(vocab, progress);
+  const since = progress.settings.weakSince;
+  const all = weakWordIds(vocab, progress);
+  const weak = since ? weakWordIds(vocab, progress, since) : all;
+  const setSince = (v: string) => setProgress((p) => ({ ...p, settings: { ...p.settings, weakSince: v } }));
   const [size, setSize] = useState<number>(30);
   const [minMiss, setMinMiss] = useState(1);
   const session = progress.decks[WEAK_DECK]?.session;
@@ -39,7 +42,7 @@ export function Weak({ vocab }: { vocab: Vocab }) {
         <span className="icon-btn-spacer" />
       </header>
 
-      {weak.length === 0 ? (
+      {all.length === 0 ? (
         <div className="empty">
           <p>아직 "모르겠음"을 누른 단어가 없어요.</p>
           <p className="muted">챕터를 학습하면 틀린 단어가 여기에 모여요.</p>
@@ -60,6 +63,23 @@ export function Weak({ vocab }: { vocab: Vocab }) {
           )}
 
           <section className="panel">
+            <div className="field">
+              <span className="field-label">기간</span>
+              <span className="field-desc">이 날짜부터 틀린 단어만 모아요</span>
+              <div className="date-row">
+                <input
+                  type="date"
+                  className={since ? 'on' : ''}
+                  value={since}
+                  max={todayString()}
+                  onChange={(e) => setSince(e.target.value)}
+                  aria-label="시작 날짜"
+                />
+                <button className={`chip-btn ${since ? '' : 'on'}`} onClick={() => setSince('')}>
+                  전체 기간
+                </button>
+              </div>
+            </div>
             <div className="field">
               <span className="field-label">단어 수</span>
               <div className="segmented">
@@ -88,6 +108,7 @@ export function Weak({ vocab }: { vocab: Vocab }) {
           <h2 className="section-title">
             많이 틀린 순 <span className="muted">{pool.length}개</span>
           </h2>
+          {pool.length === 0 && <p className="muted center-text">이 기간에 틀린 단어가 없어요</p>}
           <ul className="word-list">
             {pool.slice(0, 200).map((w) => {
               const word = vocab.wordById.get(w.wordId)!;

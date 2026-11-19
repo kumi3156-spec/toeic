@@ -271,3 +271,30 @@ describe('저장 후 복원', () => {
     expect(deserializeSession(JSON.stringify({ wordIds: [1], queue: [2], pending: [], round: 1 }))).toBeNull();
   });
 });
+
+describe('테스트 모드 (once)', () => {
+  it('각 단어를 한 번씩만 보고 끝난다, 점수와 틀린 단어가 남는다', () => {
+    let s = createSession([1, 2, 3, 4], { shuffle: false, once: true, now: 0 });
+    s = answer(s, 'unknown');
+    expect(remainingCount(s)).toBe(3);
+    s = answer(answer(answer(s, 'known'), 'unknown'), 'known');
+    expect(isComplete(s)).toBe(true);
+    expect(s.round).toBe(1);
+    expect(firstTryKnownCount(s)).toBe(2);
+    expect(missedWords(s).map((m) => m.wordId)).toEqual([1, 3]);
+  });
+
+  it('되돌리기와 저장 후 복원이 된다', () => {
+    let s = createSession([1, 2], { shuffle: false, once: true, now: 0 });
+    s = answer(s, 'unknown');
+    s = answer(s, 'unknown');
+    expect(isComplete(s)).toBe(true);
+    const r = undo(s)!;
+    expect(currentWordId(r.session)).toBe(2);
+    expect(r.session.pending).toEqual([1]);
+    const back = deserializeSession(serializeSession(r.session))!;
+    expect(back.once).toBe(true);
+    expect(answer(back, 'known').queue).toEqual([]);
+  });
+});
+

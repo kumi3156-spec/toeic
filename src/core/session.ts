@@ -28,6 +28,8 @@ export interface SessionCore {
   /** 이번 회독에서 단어별 "모르겠음" 횟수 */
   missCounts: Record<string, number>;
   shuffle: boolean;
+  /** 테스트 모드: 각 단어를 한 번씩만 보고 끝낸다 (모르겠음도 다시 나오지 않음) */
+  once?: boolean;
   startedAt: number;
   /** 실제 학습한 시간(ms). 오래 자리를 비운 시간은 IDLE_CAP_MS로 잘린다 */
   activeMs: number;
@@ -58,7 +60,7 @@ export function shuffleArray<T>(items: readonly T[], rng: Rng = Math.random): T[
 
 export function createSession(
   wordIds: readonly number[],
-  opts: { shuffle?: boolean } & Clock = {},
+  opts: { shuffle?: boolean; once?: boolean } & Clock = {},
 ): Session {
   const now = opts.now ?? Date.now();
   const shuffle = opts.shuffle ?? true;
@@ -70,6 +72,7 @@ export function createSession(
     round: 1,
     missCounts: {},
     shuffle,
+    ...(opts.once ? { once: true } : {}),
     startedAt: now,
     activeMs: 0,
     lastTick: now,
@@ -83,7 +86,8 @@ export function currentWordId(s: Session): number | null {
 
 /** 아직 "알고있음"을 받지 못한 단어 수 */
 export function remainingCount(s: Session): number {
-  return s.queue.length + s.pending.length;
+  // 테스트 모드에서는 틀린 단어가 다시 나오지 않으므로 남은 문제만 센다
+  return s.once ? s.queue.length : s.queue.length + s.pending.length;
 }
 
 export function knownCount(s: Session): number {
@@ -136,7 +140,7 @@ export function answer(s: Session, ans: Answer, clock: Clock = {}): Session {
   const entry: UndoEntry = { wordId: id, answer: ans };
 
   // 한 바퀴를 다 돌았으면 남은 "모르겠음" 단어로 다음 바퀴 시작
-  if (queue.length === 0 && pending.length > 0) {
+  if (!s.once && queue.length === 0 && pending.length > 0) {
     entry.rolled = s.pending;
     queue = s.shuffle ? shuffleArray(pending, rng) : pending.slice();
     queue = avoidImmediateRepeat(queue, id, rng);
@@ -232,6 +236,7 @@ function parseCore(v: unknown): SessionCore | null {
     round: o.round,
     missCounts,
     shuffle: o.shuffle !== false,
+    ...(o.once === true ? { once: true } : {}),
     startedAt: num(o.startedAt, now),
     activeMs: num(o.activeMs, 0),
     lastTick: num(o.lastTick, now),

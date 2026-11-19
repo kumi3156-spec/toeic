@@ -130,6 +130,14 @@ export function Home({ vocab }: { vocab: Vocab }) {
         </span>
       </button>
 
+      <button className="home-test" onClick={() => navigate('/test')}>
+        <span>
+          여러 Day 골라서 테스트
+          <small>배운 Day를 한 번에 점검하기</small>
+        </span>
+        <span aria-hidden>→</span>
+      </button>
+
       <section className="overall">
         {coreChapters.length > 0 && (
           <>

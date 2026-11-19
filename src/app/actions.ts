@@ -1,5 +1,6 @@
 // 회독 세션과 학습 기록을 묶어서 갱신하는 동작들
 import {
+  shuffleArray,
   answer,
   createSession,
   firstTryKnownCount,
@@ -22,6 +23,8 @@ import {
   setProgress,
   updateDeck,
   WEAK_DECK,
+  TEST_DECK,
+  missesSince,
   type CompletionResult,
   type Progress,
 } from '../storage/progress';
@@ -30,10 +33,10 @@ export function getSession(deck: string): Session | undefined {
   return getProgress().decks[deck]?.session;
 }
 
-export function startDeck(deck: string, wordIds: number[]): Session {
-  const session = createSession(wordIds, { shuffle: getProgress().settings.shuffle });
+export function startDeck(deck: string, wordIds: number[], opts: { once?: boolean; label?: string } = {}): Session {
+  const session = createSession(wordIds, { shuffle: opts.once ? true : getProgress().settings.shuffle, once: opts.once });
   setProgress((p) => ({
-    ...updateDeck(p, deck, (d) => ({ ...d, session, lastStudiedAt: Date.now() })),
+    ...updateDeck(p, deck, (d) => ({ ...d, session, lastStudiedAt: Date.now(), label: opts.label ?? d.label })),
     lastDeck: deck,
   }));
   return session;
@@ -102,10 +105,11 @@ export function completeDeck(deck: string, title: string = deck): CompletionResu
     missed: missedWords(s),
     finishedAt: Date.now(),
     readCount,
+    ...(s.once ? { once: true } : {}),
   };
   setProgress((p) =>
     logCompletion(
-      updateDeck(p, deck, () => ({ readCount, lastStudiedAt: Date.now() })),
+      updateDeck(p, deck, (d) => ({ readCount, lastStudiedAt: Date.now(), label: d.label })),
       {
         deck,
         title,
@@ -115,6 +119,7 @@ export function completeDeck(deck: string, title: string = deck): CompletionResu
         total: result.total,
         firstTryKnown: result.firstTryKnown,
         readCount,
+        ...(s.once ? { once: true } : {}),
       },
     ),
   );
@@ -124,14 +129,35 @@ export function completeDeck(deck: string, title: string = deck): CompletionResu
 
 export function deckTitle(vocab: Vocab, deck: string): string {
   if (deck === WEAK_DECK) return '자주 틀리는 단어';
+  if (deck === TEST_DECK) return getProgress().decks[TEST_DECK]?.label ?? '테스트';
   const id = deckChapterId(deck);
   return (id !== null && vocab.chapterById.get(id)?.title) || deck;
 }
 
 /** 자주 틀리는 단어 (많이 틀린 순) */
-export function weakWordIds(vocab: Vocab, progress: Progress): { wordId: number; miss: number }[] {
+export function weakWordIds(vocab: Vocab, progress: Progress, since = ''): { wordId: number; miss: number }[] {
   return Object.entries(progress.words)
-    .map(([id, w]) => ({ wordId: Number(id), miss: w.miss }))
+    .map(([id, w]) => ({ wordId: Number(id), miss: missesSince(w, since) }))
     .filter((w) => w.miss > 0 && vocab.wordById.has(w.wordId))
     .sort((a, b) => b.miss - a.miss || a.wordId - b.wordId);
+}
+
+/** Day 번호 목록을 짧게 표시: [1,2,3,5,7,8] → "Day 1–3, 5, 7–8" */
+export function formatDays(ids: number[]): string {
+  const sorted = [...new Set(ids)].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    parts.push(i === j ? `${sorted[i]}` : `${sorted[i]}–${sorted[j]}`);
+    i = j + 1;
+  }
+  return `Day ${parts.join(', ')}`;
+}
+
+/** 여러 Day를 골라 테스트: 각 단어를 한 번씩만 본다. limit이 있으면 그만큼 무작위로 뽑는다 */
+export function startTest(vocab: Vocab, chapterIds: number[], limit = 0): Session {
+  let ids = chapterIds.flatMap((c) => vocab.wordIdsByChapter.get(c) ?? []);
+  if (limit > 0 && ids.length > limit) ids = shuffleArray(ids).slice(0, limit);
+  return startDeck(TEST_DECK, ids, { once: true, label: `테스트 · ${formatDays(chapterIds)}` });
 }

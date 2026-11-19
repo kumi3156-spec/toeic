@@ -8,6 +8,7 @@ import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Settings } from './screens/Settings';
 import { Study } from './screens/Study';
+import { Test } from './screens/Test';
 import { Weak } from './screens/Weak';
 
 export function App() {
@@ -60,6 +61,8 @@ export function App() {
       return param ? <Study key={param} vocab={vocab} deck={param} /> : <Home vocab={vocab} />;
     case 'done':
       return param ? <Complete key={param} vocab={vocab} deck={param} /> : <Home vocab={vocab} />;
+    case 'test':
+      return <Test vocab={vocab} />;
     case 'history':
       return <History />;
     case 'weak':

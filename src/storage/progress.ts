@@ -5,12 +5,16 @@ export interface Settings {
   autoSpeak: boolean;
   /** 뜻을 안 보고 "알고있음"을 눌렀을 때 뜻을 보여주는 시간(ms). 0이면 바로 넘어감 */
   knownRevealMs: number;
+  /** 자주 틀리는 단어를 이 날짜(YYYY-MM-DD) 이후에 틀린 것만 모은다. 빈 값이면 전체 */
+  weakSince: string;
 }
 
 export interface DeckRecord {
   /** 회독 수 (완주 횟수) */
   readCount: number;
   lastStudiedAt?: number;
+  /** 표시 이름 (테스트처럼 범위를 고르는 학습) */
+  label?: string;
   /** 진행 중인 세션 */
   session?: Session;
 }
@@ -20,6 +24,10 @@ export interface WordStat {
   miss: number;
   /** 마지막으로 본 날짜 (YYYY-MM-DD) */
   lastSeen?: string;
+  /** 날짜별 "모르겠음" 횟수. 이 기능 전에 쌓인 횟수는 miss에만 있다 */
+  missDays?: Record<string, number>;
+  /** 날짜별 기록 전에 쌓인 횟수를 마지막으로 본 날짜 (근사용, 처음 기록할 때 고정) */
+  legacySeen?: string;
 }
 
 /** 하루 학습량 */
@@ -41,6 +49,8 @@ export interface HistoryEntry {
   total: number;
   firstTryKnown: number;
   readCount: number;
+  /** 테스트였는지 */
+  once?: boolean;
 }
 
 /** 완료 기록 최대 개수 */
@@ -71,12 +81,15 @@ export interface CompletionResult {
   missed: { wordId: number; count: number }[];
   finishedAt: number;
   readCount: number;
+  /** 테스트(한 번씩만 보기)였는지 */
+  once?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   shuffle: true,
   autoSpeak: false,
   knownRevealMs: 800,
+  weakSince: '',
 };
 
 export const emptyProgress = (): Progress => ({
@@ -90,6 +103,7 @@ export const emptyProgress = (): Progress => ({
 
 export const chapterDeck = (chapterId: number) => `ch-${chapterId}`;
 export const WEAK_DECK = 'weak';
+export const TEST_DECK = 'test';
 export const deckChapterId = (deck: string): number | null => {
   const m = /^ch-(\d+)$/.exec(deck);
   return m ? Number(m[1]) : null;
@@ -116,6 +130,7 @@ export function parseProgress(raw: unknown): Progress | null {
     const d = v as Record<string, unknown>;
     const rec: DeckRecord = { readCount: Math.max(0, Math.floor(num(d.readCount, 0))) };
     if (typeof d.lastStudiedAt === 'number') rec.lastStudiedAt = d.lastStudiedAt;
+    if (typeof d.label === 'string') rec.label = d.label;
     const session = d.session ? parseSession(d.session) : null;
     if (session) rec.session = session;
     decks[key] = rec;
@@ -127,6 +142,14 @@ export function parseProgress(raw: unknown): Progress | null {
     const w = v as Record<string, unknown>;
     const stat: WordStat = { miss: Math.max(0, Math.floor(num(w.miss, 0))) };
     if (typeof w.lastSeen === 'string') stat.lastSeen = w.lastSeen;
+    if (typeof w.legacySeen === 'string') stat.legacySeen = w.legacySeen;
+    if (w.missDays && typeof w.missDays === 'object') {
+      const md: Record<string, number> = {};
+      for (const [day, n] of Object.entries(w.missDays as Record<string, unknown>)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day) && typeof n === 'number' && n > 0) md[day] = Math.floor(n);
+      }
+      if (Object.keys(md).length) stat.missDays = md;
+    }
     words[key] = stat;
   }
 
@@ -152,6 +175,7 @@ export function parseProgress(raw: unknown): Progress | null {
         total: Math.max(0, Math.floor(num(v.total, 0))),
         firstTryKnown: Math.max(0, Math.floor(num(v.firstTryKnown, 0))),
         readCount: Math.max(1, Math.floor(num(v.readCount, 1))),
+        ...(v.once === true ? { once: true } : {}),
       });
     }
   }
@@ -161,6 +185,7 @@ export function parseProgress(raw: unknown): Progress | null {
     shuffle: typeof s.shuffle === 'boolean' ? s.shuffle : DEFAULT_SETTINGS.shuffle,
     autoSpeak: typeof s.autoSpeak === 'boolean' ? s.autoSpeak : DEFAULT_SETTINGS.autoSpeak,
     knownRevealMs: Math.max(0, Math.min(5000, num(s.knownRevealMs, DEFAULT_SETTINGS.knownRevealMs))),
+    weakSince: typeof s.weakSince === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.weakSince) ? s.weakSince : '',
   };
 
   return {
@@ -272,10 +297,37 @@ export function updateDeck(p: Progress, deck: string, f: (d: DeckRecord) => Deck
 
 export function bumpWord(p: Progress, wordId: number, missDelta: number, today = todayString()): Progress {
   const cur = p.words[wordId] ?? { miss: 0 };
-  return {
-    ...p,
-    words: { ...p.words, [wordId]: { miss: Math.max(0, cur.miss + missDelta), lastSeen: today } },
-  };
+  const next: WordStat = { ...cur, miss: Math.max(0, cur.miss + missDelta), lastSeen: today };
+  // 날짜별 기록 이전의 틀린 횟수가 있으면, 그 횟수의 기준 날짜를 처음 한 번만 고정해 둔다
+  const dated = Object.values(cur.missDays ?? {}).reduce((a, b) => a + b, 0);
+  if (cur.legacySeen === undefined && cur.miss > dated) next.legacySeen = cur.lastSeen ?? '';
+  if (missDelta !== 0) {
+    const md = { ...cur.missDays };
+    const n = (md[today] ?? 0) + missDelta;
+    if (n > 0) md[today] = n;
+    else delete md[today];
+    if (Object.keys(md).length) next.missDays = md;
+    else delete next.missDays;
+  }
+  return { ...p, words: { ...p.words, [wordId]: next } };
+}
+
+/**
+ * since(YYYY-MM-DD) 이후에 "모르겠음"을 누른 횟수.
+ * 날짜별 기록이 생기기 전의 횟수는 마지막으로 본 날짜에 틀린 것으로 본다 (근사).
+ */
+export function missesSince(stat: WordStat, since: string): number {
+  if (!since) return stat.miss;
+  const md = stat.missDays ?? {};
+  let dated = 0;
+  let recent = 0;
+  for (const [day, n] of Object.entries(md)) {
+    dated += n;
+    if (day >= since) recent += n;
+  }
+  const legacy = Math.max(0, stat.miss - dated);
+  if (legacy > 0 && (stat.legacySeen ?? stat.lastSeen ?? '') >= since) recent += legacy;
+  return recent;
 }
 
 export function resetDeck(p: Progress, deck: string, wordIds: number[]): Progress {
